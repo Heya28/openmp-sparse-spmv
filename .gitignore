@@ -1,0 +1,6 @@
+.vscode
+test_spmv
+generate_matrix
+benchmark_spmv
+data/
+*.o

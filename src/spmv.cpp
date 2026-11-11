@@ -47,6 +47,12 @@ COOMatrix read_mtx(const std::string& filename) {
         coo_values.push_back(value);
     }
     mtxfile.close();
+
+    // attaching local data to struct 
+    coo_matrix.total_nnz = total_nnz;
+    coo_matrix.rows = coo_rows;
+    coo_matrix.cols = coo_cols;
+    coo_matrix.values = coo_values;
     return coo_matrix;
 }
 
@@ -65,7 +71,7 @@ CSRMatrix coo_to_csr(const COOMatrix& coo_matrix){
     matrix.row_ptr.assign(matrix.num_rows+1,0);
 
     // 1. Filling row_ptr 
-    for(int i=0;i<coo_rows.size();i++){
+    for(size_t i=0;i<coo_rows.size();i++){
         // count number of non-zeroes per row ( histogram )
         matrix.row_ptr[coo_rows[i]+1]++;
     }
@@ -95,6 +101,20 @@ CSRMatrix coo_to_csr(const COOMatrix& coo_matrix){
 std::vector<double> spmv_serial(const CSRMatrix& matrix, const std::vector<double>& x) {
     std::vector<double> y(matrix.num_rows,0.0);
     // Matrix multiplication
+    for(int i=0;i<matrix.num_rows;i++){
+        double rowsum=0.0;
+        for(int j=matrix.row_ptr[i];j<matrix.row_ptr[i+1];j++){
+            rowsum+=x[matrix.col_indices[j]]*matrix.values[j];
+        }
+        y[i]=rowsum;
+    }
+    return y;
+}
+
+// Parallel sparse matrix vector multiplication
+std::vector<double> spmv_omp(const CSRMatrix& matrix, const std::vector<double>& x){
+    std::vector<double> y(matrix.num_rows,0.0);
+    #pragma omp parallel for schedule(static)
     for(int i=0;i<matrix.num_rows;i++){
         double rowsum=0.0;
         for(int j=matrix.row_ptr[i];j<matrix.row_ptr[i+1];j++){
