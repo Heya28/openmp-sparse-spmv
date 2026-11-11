@@ -24,3 +24,4 @@ struct CSRMatrix {
 COOMatrix read_mtx(const std::string& filename);
 CSRMatrix coo_to_csr(const COOMatrix& coo_matrix);
 std::vector<double> spmv_serial(const CSRMatrix& matrix, const std::vector<double>& x);
+std::vector<double> spmv_omp(const CSRMatrix& matrix, const std::vector<double>& x);
