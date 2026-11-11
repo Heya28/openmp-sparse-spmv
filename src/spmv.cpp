@@ -4,6 +4,8 @@
 #include <string>
 #include <stdexcept> 
 #include <sstream>
+#include<algorithm>
+#include<cctype>
 
 COOMatrix read_mtx(const std::string& filename) {
     COOMatrix coo_matrix;
@@ -11,51 +13,69 @@ COOMatrix read_mtx(const std::string& filename) {
     if (!mtxfile.is_open()) {
         throw std::runtime_error("Error: Could not open MTX file: " + filename);
     }
-    
+
     std::string line;
+    bool is_symmetric = false, is_skew = false, is_pattern = false;
+
+    // Banner line: lowercase it, then check the format keywords
+    if (std::getline(mtxfile, line)) {
+        std::transform(line.begin(), line.end(), line.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        is_skew      = line.find("skew-symmetric") != std::string::npos;
+        is_symmetric = !is_skew && line.find("symmetric") != std::string::npos;
+        is_pattern   = line.find("pattern") != std::string::npos;
+    }
+
+    // Skip comments, then read the size line
+    bool found_size = false;
     while (std::getline(mtxfile, line)) {
-        if (line.empty() || line[0] == '%') {
-            continue;
-        } else {
-            break;
-        }
-    } 
-    // Parse the dimension header 
+        if (line.empty() || line[0] == '%') continue;
+        found_size = true;
+        break;
+    }
+    if (!found_size) throw std::runtime_error("Error: MTX file has no size line: " + filename);
+
     std::stringstream ss(line);
-    int total_nnz;
-    ss >> coo_matrix.num_rows >> coo_matrix.num_cols >> total_nnz;
-    
-    // Parse the rest of the file
-    std::vector<int> coo_rows;
-    std::vector<int> coo_cols;
+    long long file_nnz = 0;
+    ss >> coo_matrix.num_rows >> coo_matrix.num_cols >> file_nnz;
+
+    const bool mirror = is_symmetric || is_skew;
+    std::vector<int> coo_rows, coo_cols;
     std::vector<double> coo_values;
-    coo_rows.reserve(total_nnz);
-    coo_cols.reserve(total_nnz);
-    coo_values.reserve(total_nnz);
-    
+    size_t cap = (size_t)file_nnz * (mirror ? 2 : 1);
+    coo_rows.reserve(cap);
+    coo_cols.reserve(cap);
+    coo_values.reserve(cap);
+
     while (std::getline(mtxfile, line)) {
+        if (line.empty() || line[0] == '%') continue;
         std::stringstream ss_coo(line);
         int row, col;
-        double value;
-        ss_coo >> row >> col >> value;
-        
-        row--; // Convert 1-based index to 0-based index
-        col--; 
-        
+        double value = 1.0;  // default for pattern matrices
+
+        if (is_pattern) { if (!(ss_coo >> row >> col)) continue; }
+        else            { if (!(ss_coo >> row >> col >> value)) continue; }
+
+        row--; col--;  // 1-based -> 0-based
         coo_rows.push_back(row);
         coo_cols.push_back(col);
         coo_values.push_back(value);
+
+        // Only one triangle is stored, so mirror off-diagonal entries
+        if (mirror && row != col) {
+            coo_rows.push_back(col);
+            coo_cols.push_back(row);
+            coo_values.push_back(is_skew ? -value : value);
+        }
     }
     mtxfile.close();
 
-    // attaching local data to struct 
-    coo_matrix.total_nnz = total_nnz;
-    coo_matrix.rows = coo_rows;
-    coo_matrix.cols = coo_cols;
-    coo_matrix.values = coo_values;
+    coo_matrix.total_nnz = (int)coo_rows.size();
+    coo_matrix.rows   = std::move(coo_rows);
+    coo_matrix.cols   = std::move(coo_cols);
+    coo_matrix.values = std::move(coo_values);
     return coo_matrix;
 }
-
 CSRMatrix coo_to_csr(const COOMatrix& coo_matrix){
     int total_nnz=coo_matrix.total_nnz;
     std::vector<int> coo_rows=coo_matrix.rows;

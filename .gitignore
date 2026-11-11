@@ -3,4 +3,5 @@ test_spmv
 generate_matrix
 benchmark_spmv
 data/
-*.o
+*.otest_symmetric
+test_symmetric
