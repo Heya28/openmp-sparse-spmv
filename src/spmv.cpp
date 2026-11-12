@@ -133,6 +133,7 @@ std::vector<double> spmv_serial(const CSRMatrix& matrix, const std::vector<doubl
     return y;
 }
 std::vector<double> spmv_balanced_serial(const CSRMatrix& matrix, const std::vector<double>& x, int T) {
+    // * checks that multiplication is correct when rows are split at cut points ( no threads ) - test_balanced
     std::vector<double> y(matrix.num_rows, 0.0);
     long long total = matrix.row_ptr[matrix.num_rows];
 

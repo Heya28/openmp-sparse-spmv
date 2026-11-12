@@ -8,3 +8,4 @@ test_symmetric
 imbalance
 test_balanced
 dump_y
+stream_copy
