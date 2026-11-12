@@ -6,3 +6,4 @@ data/
 *.otest_symmetric
 test_symmetric
 imbalance
+test_balanced
