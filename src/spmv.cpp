@@ -6,6 +6,7 @@
 #include <sstream>
 #include<algorithm>
 #include<cctype>
+#include<omp.h>
 
 COOMatrix read_mtx(const std::string& filename) {
     COOMatrix coo_matrix;
@@ -131,7 +132,29 @@ std::vector<double> spmv_serial(const CSRMatrix& matrix, const std::vector<doubl
     }
     return y;
 }
+std::vector<double> spmv_balanced_serial(const CSRMatrix& matrix, const std::vector<double>& x, int T) {
+    std::vector<double> y(matrix.num_rows, 0.0);
+    long long total = matrix.row_ptr[matrix.num_rows];
 
+    // 1. bound array built
+    std::vector<int> bound(T + 1);
+    for (int t = 0; t <= T; t++) {
+        long long target = t * total / T; // how many non zeroes should come before this
+        bound[t] = std::lower_bound(matrix.row_ptr.begin(), matrix.row_ptr.end(), target) - matrix.row_ptr.begin();
+    }
+
+    // 2. for each worker t, loop over its rows
+    for (int t = 0; t < T; t++) {
+        for (int i = bound[t]; i < bound[t + 1]; i++) {
+            double rowsum=0.0;
+            for(int j=matrix.row_ptr[i];j<matrix.row_ptr[i+1];j++){
+                rowsum+=x[matrix.col_indices[j]]*matrix.values[j];
+            }
+            y[i]=rowsum;
+        }
+    }
+    return y;
+}
 // Parallel sparse matrix vector multiplication
 std::vector<double> spmv_omp(const CSRMatrix& matrix, const std::vector<double>& x){
     std::vector<double> y(matrix.num_rows,0.0);
@@ -142,6 +165,31 @@ std::vector<double> spmv_omp(const CSRMatrix& matrix, const std::vector<double>&
             rowsum+=x[matrix.col_indices[j]]*matrix.values[j];
         }
         y[i]=rowsum;
+    }
+    return y;
+}
+
+std::vector<double> spmv_omp_balanced(const CSRMatrix& matrix, const std::vector<double>& x) {
+    std::vector<double> y(matrix.num_rows, 0.0); // created before the parallel region, so all threads share it.
+    int T = omp_get_max_threads(); // How many threads OpenMP would use by default
+
+    std::vector<int> bound(T + 1);
+    long long total = matrix.row_ptr[matrix.num_rows];
+    for (int t = 0; t <= T; t++) {
+        long long target = t * total / T; // how many non zeroes should come before this
+        bound[t] = std::lower_bound(matrix.row_ptr.begin(), matrix.row_ptr.end(), target) - matrix.row_ptr.begin();
+    }
+
+    #pragma omp parallel num_threads(T)
+    {
+        int t = omp_get_thread_num();
+        for (int i = bound[t]; i < bound[t + 1]; i++) {
+            double rowsum=0.0;
+            for(int j=matrix.row_ptr[i];j<matrix.row_ptr[i+1];j++){
+                rowsum+=x[matrix.col_indices[j]]*matrix.values[j];
+            }
+            y[i]=rowsum;
+        }
     }
     return y;
 }

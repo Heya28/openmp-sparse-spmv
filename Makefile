@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -O3 -Wall -std=c++17 -fopenmp
 
-all: test_spmv test_symmetric benchmark_spmv imbalance generate_matrix
+all: test_spmv test_symmetric benchmark_spmv imbalance generate_matrix test_balanced
 
 test_spmv: tests/test_spmv.cpp src/spmv.cpp include/spmv.hpp
 	$(CXX) $(CXXFLAGS) -o test_spmv tests/test_spmv.cpp src/spmv.cpp
@@ -18,7 +18,10 @@ imbalance: tests/imbalance.cpp src/spmv.cpp include/spmv.hpp
 generate_matrix: generate_matrix.cpp
 	$(CXX) $(CXXFLAGS) -o generate_matrix generate_matrix.cpp
 
+test_balanced: tests/test_balanced.cpp src/spmv.cpp include/spmv.hpp
+	$(CXX) $(CXXFLAGS) -o test_balanced tests/test_balanced.cpp src/spmv.cpp
+
 clean:
-	rm -f test_spmv test_symmetric benchmark_spmv imbalance generate_matrix
+	rm -f test_spmv test_symmetric benchmark_spmv imbalance generate_matrix test_balanced
 
 .PHONY: all clean
