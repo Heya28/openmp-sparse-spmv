@@ -118,6 +118,7 @@ CSRMatrix coo_to_csr(const COOMatrix& coo_matrix){
 }
 
 // serial sparse matrix vector multiplication
+// O(nnz + rows)
 std::vector<double> spmv_serial(const CSRMatrix& matrix, const std::vector<double>& x) {
     std::vector<double> y(matrix.num_rows,0.0);
     // Matrix multiplication
