@@ -7,3 +7,4 @@ data/
 test_symmetric
 imbalance
 test_balanced
+dump_y
